@@ -7,22 +7,35 @@ services:
     ports:
       - "5432:5432"
     depends_on:
-      - mongo
+      - mongodb
       - redis
     environment:
-      MONGO_URI: "mongodb://mongo:27017/mydatabase"
+      MONGO_URI: "mongodb://mongodb:27017/articles"
       REDIS_HOST: "redis"
       REDIS_PORT: "6379"
     volumes:
       - ./app:/app
 
-  mongo:
-    container_name: "mongo"
+  mongodb:
+    container_name: "mongodb"
     image: mongo:4.4
     ports:
       - "27017:27017"
     volumes:
       - mongo_data:/data/db
+
+  mongo-express:
+    image: mongo-express:latest
+    container_name: mongo-express
+    ports:
+      - "8081:8081" # Mongo Express běží na portu 8081
+    depends_on:
+      - mongodb
+    environment:
+      - ME_CONFIG_MONGODB_SERVER=mongodb
+      - ME_CONFIG_MONGODB_PORT=27017
+      - ME_CONFIG_BASICAUTH_USERNAME=admin # Uživatelské jméno pro Mongo Express
+      - ME_CONFIG_BASICAUTH_PASSWORD=secret # Heslo pro Mongo Express
 
   redis:
     container_name: "redis"
@@ -32,3 +45,4 @@ services:
 
 volumes:
   mongo_data:
+    driver: local

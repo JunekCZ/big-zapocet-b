@@ -1,15 +1,14 @@
+# __init__.py
 from flask import Flask
-from .database import mongo, redis_client
+from .database import db, redis_client
 from .routes import main
 
 def create_app():
     app = Flask(__name__)
-    
-    # Nastavení MongoDB a Redis
-    app.config['MONGO_URI'] = "mongodb://mongo:27017/mydatabase"
-    mongo.init_app(app)
-    
+
     # Registrace blueprintu pro routy
     app.register_blueprint(main)
-    
+
+    # Tady můžeš mít i nastavení pro Redis, ale Redis se inicializuje přímo v `database.py`
+
     return app
