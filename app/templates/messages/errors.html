@@ -1,0 +1,34 @@
+{% if error %}
+<div class="text-red-500">
+  <div class="flex font-bold">
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      fill="none"
+      viewBox="0 0 24 24"
+      stroke-width="1.5"
+      stroke="currentColor"
+      class="size-6 mr-1"
+    >
+      <path
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        d="M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 3.75h.008v.008H12v-.008Z"
+      />
+    </svg>
+    Chyba
+  </div>
+  {% if error == "passwords_do_not_match" %}
+  <p class="text-red-500">Hesla se neshodují</p>
+  {% endif %} {% if error == "password_is_too_short" %}
+  <p class="text-red-500">Heslo je moc krátké (minimálně 3 písmena)</p>
+  {% endif %} {% if error == "empty_fields" %}
+  <p class="text-red-500">Nebyla vyplněna všechna povinná pole</p>
+  {% endif %} {% if error == "email_in_use" %}
+  <p class="text-red-500">Účet s takovýmto emailem již existuje</p>
+  {% endif %} {% if error == "invalid_credentials" %}
+  <p class="text-red-500">Neplatné přihlašovací údaje</p>
+  {% endif %} {% if error == "missing_credentials" %}
+  <p class="text-red-500">Nebyly vyplněny přihlašovací údaje</p>
+  {% endif %}
+</div>
+{% endif %}
