@@ -2,6 +2,11 @@ from flask import Blueprint, render_template, jsonify, request, session, redirec
 import bcrypt
 from .database import articles, users, ratings, redis_client
 
+LOGIN_TEMPLATE = 'auth/login.html'
+LOGIN_TITLE = 'Přihlášení'
+REGISTER_TEMPLATE = 'auth/register.html'
+REGISTER_TITLE = 'Registrace'
+
 main = Blueprint('main', __name__)
 
 @main.route('/', methods=['GET'])
@@ -30,11 +35,15 @@ def save_data():
     
     return jsonify({"message": "Data saved"}), 201
 
+@main.route('/article', methods=['GET', 'POST'])
+def article():
+    if 'user' not in session:
+        return redirect(url_for('main.login'))
+
+    return render_template('article.html', title="Přidat / upravit článek", user=session['user'])
+
 @main.route('/login', methods=['GET', 'POST'])
 def login():
-    LOGIN_TEMPLATE = 'auth/login.html'
-    LOGIN_TITLE = 'Přihlášení'
-
     if request.method == 'POST':
         email = request.form['email']
         password = request.form['password']
@@ -61,9 +70,6 @@ def login():
 
 @main.route('/register', methods=['GET', 'POST'])
 def register():
-    REGISTER_TEMPLATE = 'auth/register.html'
-    REGISTER_TITLE = 'Registrace'
-
     if request.method == 'POST':
         email = request.form['email']
         password = request.form['password']
