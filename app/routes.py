@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, jsonify, request
+from flask import Blueprint, render_template, jsonify, request, session
 import bcrypt
 from .database import db, redis_client
 
@@ -6,7 +6,6 @@ main = Blueprint('main', __name__)
 
 @main.route('/', methods=['GET'])
 def index():
-    title = "Moje Flask aplikace"
     # db["articles"].insert_one({"title": title})
 
     # password_hash = bcrypt.hashpw("qwerty".encode("utf-8"), bcrypt.gensalt())
@@ -18,14 +17,13 @@ def index():
 
     # db["users"].insert_one(user)
 
-    return render_template('index.html', title=title)
+    return render_template('index.html', title="Domů")
 
 @main.route('/data', methods=['GET'])
 def get_data():
     data = db.collection_name.find_one({}, {'_id': 0})
     if data:
-        title = "Moje Flask aplikace2"
-        return render_template('index2.html', title=title, data=data)
+        return render_template('index2.html', title="Domů", data=data, user=session.get("user", "none"))
     return jsonify({"error": "No data found"}), 404
 
 @main.route('/data', methods=['POST'])
@@ -40,3 +38,11 @@ def save_data():
     redis_client.set("latest_data", str(data))  # Můžete použít jiný formát ukládání
     
     return jsonify({"message": "Data saved"}), 201
+
+@main.route('/login', methods=['GET', 'POST'])
+def login():
+    return render_template('auth/login.html', title="Přihlášení")
+
+@main.route('/register', methods=['GET', 'POST'])
+def register():
+    return render_template('auth/register.html', title="Registrace")
