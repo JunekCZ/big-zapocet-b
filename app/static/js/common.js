@@ -24,6 +24,18 @@ $(document).ready(function () {
         deactivateStar($(this));
       });
     });
+
+    $("#search-input").click(function () {
+      $.ajax({
+        url: "/fetch-articles",
+        success: function (result) {
+          $("#div1").html(result);
+        },
+        error: function (error) {
+          console.error("Error fetching articles:", error);
+        },
+      });
+    });
   });
 
   $starRating.on("mouseleave", function () {

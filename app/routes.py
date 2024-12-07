@@ -1,6 +1,7 @@
 from flask import Blueprint, render_template, jsonify, request, session, redirect, url_for
 import bcrypt
-from .database import articles, users, ratings, redis_client
+from .database import articles, users, redis_client
+import datetime
 
 LOGIN_TEMPLATE = 'auth/login.html'
 LOGIN_TITLE = 'Přihlášení'
@@ -12,7 +13,8 @@ main = Blueprint('main', __name__)
 @main.route('/', methods=['GET'])
 def index():
     if 'user' in session:
-        return render_template('index.html', title="Domů", user=session['user'])
+        data = articles.find()
+        return render_template('index.html', title="Domů", user=session['user'], articles=data)
     return render_template('index.html', title="Domů")
 
 @main.route('/data', methods=['GET'])
@@ -39,6 +41,22 @@ def save_data():
 def article():
     if 'user' not in session:
         return redirect(url_for('main.login'))
+
+    if request.method == 'POST':
+        name = request.form['name']
+        url = request.form['url']
+        cover = request.form['cover']
+        author = session['user']['_id']
+        article = {
+            'name': name,
+            'url': url,
+            'cover': cover,
+            'author': author,
+            'date': datetime.datetime.now(),
+            'rating': [],
+        }
+        articles.insert_one(article)
+        return redirect(url_for('main.index'))
 
     return render_template('article.html', title="Přidat / upravit článek", user=session['user'])
 
