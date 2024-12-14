@@ -1,134 +1,25 @@
 {% extends 'base.html' %} {% block content %} {% if articles == [] or articles
 == None %}
-<div class="flex flex-col items-center">
-  Omlouváme se, ale nepodařilo se nám najít žádný článek.
+
+<div class="text-5xl font-extrabold text-center pt-4 pb-4">
+  Zatím se vám nelíbil
+  <span
+    class="bg-clip-text text-transparent bg-gradient-to-r from-pink-500 to-violet-500"
+  >
+    žádný
+  </span>
+  článek :(
 </div>
 {% else %}
-
-<form
-  class="flex flex-col items-center gap-4 mb-4"
-  action="/filter-articles"
-  method="post"
->
-  <div class="flex w-full justify-center">
-    <div class="max-w-md w-1/2">
-      <label
-        for="default-search"
-        class="mb-2 text-sm font-medium text-gray-900 sr-only dark:text-white"
-        >Vyhledat</label
-      >
-      <div class="relative">
-        <div
-          class="absolute inset-y-0 start-0 flex items-center ps-3 pointer-events-none"
-        >
-          <svg
-            class="w-4 h-4 text-gray-500 dark:text-gray-400"
-            aria-hidden="true"
-            xmlns="http://www.w3.org/2000/svg"
-            fill="none"
-            viewBox="0 0 20 20"
-          >
-            <path
-              stroke="currentColor"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              stroke-width="2"
-              d="m19 19-4-4m0-7A7 7 0 1 1 1 8a7 7 0 0 1 14 0Z"
-            />
-          </svg>
-        </div>
-        <input
-          type="search"
-          id="default-search"
-          class="block w-full p-4 ps-10 text-sm text-gray-900 border border-gray-300 rounded-lg bg-gray-50 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
-          placeholder="Vyhledat dle názvu"
-          required
-        />
-        <button
-          type="submit"
-          class="text-white absolute end-2.5 bottom-2.5 bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:outline-none focus:ring-blue-300 font-medium rounded-lg text-sm px-4 py-2 dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800"
-        >
-          Vyhledat
-        </button>
-      </div>
-    </div>
-  </div>
-  <div class="flex gap-1">
-    <button
-      id="dropdownToggleButton"
-      data-dropdown-toggle="dropdownToggle"
-      class="relative inline-flex items-center text-sm font-medium text-center text-gray-500 hover:text-gray-900 focus:outline-none dark:hover:text-white dark:text-gray-400"
-      type="button"
-    >
-      Zobrazit dle
-      <svg
-        xmlns="http://www.w3.org/2000/svg"
-        fill="none"
-        viewBox="0 0 24 24"
-        stroke-width="1.5"
-        stroke="currentColor"
-        class="size-6"
-      >
-        <path
-          stroke-linecap="round"
-          stroke-linejoin="round"
-          d="M12 3c2.755 0 5.455.232 8.083.678.533.09.917.556.917 1.096v1.044a2.25 2.25 0 0 1-.659 1.591l-5.432 5.432a2.25 2.25 0 0 0-.659 1.591v2.927a2.25 2.25 0 0 1-1.244 2.013L9.75 21v-6.568a2.25 2.25 0 0 0-.659-1.591L3.659 7.409A2.25 2.25 0 0 1 3 5.818V4.774c0-.54.384-1.006.917-1.096A48.32 48.32 0 0 1 12 3Z"
-        />
-      </svg>
-    </button>
-
-    <!-- Dropdown menu -->
-    <div
-      id="dropdownToggle"
-      class="z-10 hidden bg-white divide-y divide-gray-100 rounded-lg shadow w-72 dark:bg-gray-700 dark:divide-gray-600"
-    >
-      <div class="flex items-center py-4 px-2">
-        <input
-          id="default-radio-1"
-          type="radio"
-          value=""
-          name="default-radio"
-          class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600 cursor-pointer"
-        />
-        <label
-          for="default-radio-1"
-          class="ms-2 text-sm font-medium text-gray-900 dark:text-gray-300"
-          >Nejstaršího</label
-        >
-      </div>
-      <div class="flex items-center py-4 px-2">
-        <input
-          checked
-          id="default-radio-2"
-          type="radio"
-          value=""
-          name="default-radio"
-          class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600 cursor-pointer"
-        />
-        <label
-          for="default-radio-2"
-          class="ms-2 text-sm font-medium text-gray-900 dark:text-gray-300"
-          >Nejoblíbenějšího</label
-        >
-      </div>
-      <div class="flex items-center py-4 px-2">
-        <input
-          checked
-          id="default-radio-3"
-          type="radio"
-          value=""
-          name="default-radio"
-          class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600 cursor-pointer"
-        />
-        <label
-          for="default-radio-3"
-          class="ms-2 text-sm font-medium text-gray-900 dark:text-gray-300"
-          >Nejméně oblíbeného</label
-        >
-      </div>
-    </div>
-  </div>
-</form>
+<div class="text-5xl font-extrabold text-center pt-4 pb-4">
+  Vaše
+  <span
+    class="bg-clip-text text-transparent bg-gradient-to-r from-pink-500 to-violet-500"
+  >
+    oblíbené
+  </span>
+  články
+</div>
 <div class="flex flex-wrap justify-center gap-4">
   {% for article in articles %}
 
@@ -223,7 +114,7 @@
             viewBox="0 0 24 24"
             stroke-width="1.5"
             stroke="white"
-            class="heart-icon size-6 cursor-pointer {{ 'active' if article.is_favourite else '' }}"
+            class="heart-icon size-6 cursor-pointer active"
             onClick="addArticleToFavourites('{{ article._id }}')"
           >
             <path

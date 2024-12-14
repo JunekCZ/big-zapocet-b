@@ -13,3 +13,19 @@
 
 .star-rating .star-rating__star {
 }
+
+.heart-icon {
+  cursor: pointer;
+}
+
+.heart-icon:hover {
+  fill: white;
+}
+
+.heart-icon.active {
+  fill: white;
+}
+
+.heart-icon.active:hover {
+  fill: none;
+}

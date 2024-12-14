@@ -76,3 +76,22 @@ const activateStar = ($star) => {
     $star.removeClass("dark:text-gray-600");
   }
 };
+
+const addArticleToFavourites = (articleId) => {
+  if (!articleId) return;
+
+  $.ajax({
+    url: "http://localhost:5432/addArticleToFavourites",
+    type: "POST",
+    data: JSON.stringify({ article_id: articleId }),
+    contentType: "application/json",
+    dataType: "json",
+    success: function (response) {
+      console.log("Article added to favourites:", response);
+      location.reload();
+    },
+    error: function (error) {
+      console.error("Error adding article to favourites:", error);
+    },
+  });
+};

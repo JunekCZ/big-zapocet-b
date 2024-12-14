@@ -2,6 +2,9 @@ from flask import Blueprint, render_template, jsonify, request, session, redirec
 import bcrypt
 from .database import articles, users, redis_client
 import datetime
+from bson import ObjectId
+import logging
+logging.basicConfig(level=logging.DEBUG)
 
 LOGIN_TEMPLATE = 'auth/login.html'
 LOGIN_TITLE = 'Přihlášení'
@@ -13,29 +16,70 @@ main = Blueprint('main', __name__)
 @main.route('/', methods=['GET'])
 def index():
     if 'user' in session:
-        data = articles.find()
+        data = list(articles.find())
+        if len(data) > 0:
+            for article in data:
+                # Převod ObjectId na string, pokud je potřeba
+                article['_id'] = str(article['_id'])
+                article['is_favourite'] = article['_id'] in session['user']['favourites']
+
+                # article['date'] = article['date'].strftime('%d.%m.%Y')
+                # article['rating'] = len(article['rating'])
+                # article['rating_avg'] = sum(article['rating']) / len(article['rating']) if article['rating'] else
         return render_template('index.html', title="Domů", user=session['user'], articles=data)
     return render_template('index.html', title="Domů")
 
-@main.route('/data', methods=['GET'])
-def get_data():
-    data = articles.find_one({}, {'_id': 0})
-    if data:
-        return render_template('index2.html', title="Domů", data=data, user=session.get("user", "none"))
-    return jsonify({"error": "No data found"}), 404
+@main.route('/favourites', methods=['GET'])
+def favourites():
+    if 'user' in session:
+        user = session['user']
+        favourite_ids = [ObjectId(fav) for fav in user['favourites']]
+        favourites = list(articles.find({"_id": {"$in": favourite_ids}}))
+        return render_template('favourites.html', title="Oblíbené", articles=favourites)
+    return render_template(LOGIN_TEMPLATE, title=LOGIN_TITLE)
 
-@main.route('/data', methods=['POST'])
-def save_data():
-    # Získání JSON dat z požadavku
-    data = request.json
-    if not data:
+@main.route('/addArticleToFavourites', methods=['POST'])
+def add_article_to_favourites():
+    json_data = request.get_json()
+    if(not json_data):
         return jsonify({"error": "No data provided"}), 400
-    
-    # Uložení dat do MongoDB a Redis
-    # client.db.collection_name.insert_one(data)
-    redis_client.set("latest_data", str(data))  # Můžete použít jiný formát ukládání
-    
-    return jsonify({"message": "Data saved"}), 201
+
+    session_user = session.get('user')
+    if not session_user:
+        return jsonify({"error": "User not logged in"}), 401
+
+    article_id = json_data.get('article_id')
+    if not article_id:
+        return jsonify({"error": "Article ID not provided"}), 400
+
+    user_id = ObjectId(session_user.get('_id'))
+    # find users favourites
+    data = users.find_one({'_id': user_id}, {'favourites': 1})
+    if not data:
+        return jsonify({"error": "User does not exist"}), 404
+
+    favourites = data.get('favourites', [])
+
+    # find article in favourites array
+    if article_id not in favourites:
+        # update users favourites
+        update = users.update_one({'_id': user_id}, {'$push': {'favourites': article_id}})
+        if update.modified_count == 0:
+            return jsonify({"error": "Failed to update favourites"}), 500
+
+        session_user['favourites'].append(article_id)
+        session['user'] = session_user
+        return jsonify({"message": "Article added to favourites"}), 200
+
+    # Remove article from favourites
+    update = users.update_one({'_id': user_id}, {'$pull': {'favourites': article_id}})
+    if update.modified_count == 0:
+        return jsonify({"error": "Failed to remove from favourites"}), 500
+
+    if 'favourites' in session_user and article_id in session_user['favourites']:
+        session_user['favourites'].remove(article_id)
+    session['user'] = session_user
+    return jsonify({"message": "Article removed from favourites"}), 200
 
 @main.route('/article', methods=['GET', 'POST'])
 def article():
@@ -78,7 +122,8 @@ def login():
         if user and bcrypt.checkpw(password.encode('utf-8'), user['password']):
             session['user'] = {
                 '_id': str(user['_id']),
-                'email': user['email']
+                'email': user['email'],
+                'favourites': user['favourites']
             }
             return redirect(url_for('main.index'))
 
