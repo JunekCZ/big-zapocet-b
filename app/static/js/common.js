@@ -4,6 +4,7 @@ $(document).ready(function () {
 
   $starRating.on("mouseover", function () {
     const $stars = $(this).find(".star-rating__star");
+    const $thisStarRatin = $(this);
 
     $stars.on("mouseover", function () {
       const $thisStar = $(this);
@@ -23,6 +24,14 @@ $(document).ready(function () {
       $inactiveStars.each(function () {
         deactivateStar($(this));
       });
+    });
+
+    $stars.on("click", function () {
+      const $thisStar = $(this);
+      const starIndex = $thisStar.index();
+      const starRatingClassList = $($thisStarRatin).attr("class").split(/\s+/);
+      const articleId = starRatingClassList[starRatingClassList.length - 1];
+      rateArticle(articleId, starIndex + 1);
     });
 
     $("#search-input").click(function () {
@@ -86,12 +95,30 @@ const addArticleToFavourites = (articleId) => {
     data: JSON.stringify({ article_id: articleId }),
     contentType: "application/json",
     dataType: "json",
-    success: function (response) {
-      console.log("Article added to favourites:", response);
+    success: function () {
       location.reload();
     },
     error: function (error) {
       console.error("Error adding article to favourites:", error);
+    },
+  });
+};
+
+const rateArticle = (articleId, rating) => {
+  if (!articleId) return;
+
+  rating = rating > 5 ? 5 : rating < 1 ? 1 : rating;
+  $.ajax({
+    url: "http://localhost:5432/rateArticle",
+    type: "POST",
+    data: JSON.stringify({ article_id: articleId, rating: rating }),
+    contentType: "application/json",
+    dataType: "json",
+    success: function () {
+      location.reload();
+    },
+    error: function (error) {
+      console.error("Error rating article:", error);
     },
   });
 };

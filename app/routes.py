@@ -13,21 +13,62 @@ REGISTER_TITLE = 'Registrace'
 
 main = Blueprint('main', __name__)
 
-@main.route('/', methods=['GET'])
+@main.route('/', methods=['GET', 'POST'])
 def index():
-    if 'user' in session:
-        data = list(articles.find())
-        if len(data) > 0:
-            for article in data:
-                # Převod ObjectId na string, pokud je potřeba
-                article['_id'] = str(article['_id'])
-                article['is_favourite'] = article['_id'] in session['user']['favourites']
+    data = get_articles_with_default_data()
 
-                # article['date'] = article['date'].strftime('%d.%m.%Y')
-                # article['rating'] = len(article['rating'])
-                # article['rating_avg'] = sum(article['rating']) / len(article['rating']) if article['rating'] else
-        return render_template('index.html', title="Domů", user=session['user'], articles=data)
-    return render_template('index.html', title="Domů")
+    user_query = None
+    radio = -1
+    if request.method == 'POST':
+        user_query = request.form.get('search-text', '').strip()  # Získá data z inputu
+        radio = int(request.form.get('default-radio'))
+
+    # Filtrování článků podle dotazu
+    if user_query:
+        data = [article for article in data if user_query.lower() in article['name'].lower()]
+
+    # Filtrování dle nejnovějších
+    if radio == 0:
+        data = sorted(data, key=lambda x: x['date'], reverse=True)
+
+    # Filtrování dle nejstarších
+    if radio == 1:
+        data = sorted(data, key=lambda x: x['date'])
+
+    # Filtrování dle nejoblíbenějších
+    if radio == 2:
+        data = sorted(data, key=lambda x: sum(rating.get('rating', 0.0) for rating in x.get('ratings', [])), reverse=True)
+
+    # Filtrování dle nejméně oblíbených
+    if radio == 3:
+        data = sorted(data, key=lambda x: sum(rating.get('rating', 0.0) for rating in x.get('ratings', [])))
+
+
+    if 'user' in session and len(data) > 0:
+        for article in data:
+            # Převod ObjectId na string, pokud je potřeba
+            article['_id'] = str(article['_id'])
+            article['is_favourite'] = article['_id'] in session['user']['favourites']
+            ratings = article['ratings']
+            article['user_rating'] = next((rating['rating'] for rating in ratings if rating['user_id'] == session['user']['_id']), 0)
+    return render_template('index.html', title="Domů", user=session.get('user', None), articles=data)
+
+def get_articles_with_default_data():
+    data = list(articles.find())
+    if len(data) > 0:
+        for article in data:
+            # Převod ObjectId na string, pokud je potřeba
+            article['_id'] = str(article['_id'])
+            ratings = article.get('ratings', [])
+            total_rating = sum(rating['rating'] for rating in ratings)
+            article['ratings'] = ratings
+            article['rating'] = total_rating / len(ratings) if len(ratings) > 0 else -1
+            article['total_rating'] = total_rating
+
+            # article['date'] = article['date'].strftime('%d.%m.%Y')
+            # article['ratings'] = len(article['ratings'])
+            # article['rating_avg'] = sum(article['rating']) / len(article['rating']) if article['rating'] else
+    return data
 
 @main.route('/favourites', methods=['GET'])
 def favourites():
@@ -81,6 +122,84 @@ def add_article_to_favourites():
     session['user'] = session_user
     return jsonify({"message": "Article removed from favourites"}), 200
 
+@main.route('/rateArticle', methods=['POST'])
+def rate_article():
+    from bson import ObjectId
+    from flask import jsonify, request, session
+
+    # Načtení dat z JSON requestu
+    json_data = request.get_json()
+    if not json_data:
+        return jsonify({"error": "No data provided"}), 400
+
+    # Kontrola, zda je uživatel přihlášen
+    session_user = session.get('user')
+    if not session_user:
+        return jsonify({"error": "User not logged in"}), 401
+
+    # Získání ID článku
+    article_id = json_data.get('article_id')
+    if not article_id:
+        return jsonify({"error": "Article ID not provided"}), 400
+
+    # Získání hodnocení
+    rating = json_data.get('rating')
+    if not rating:
+        return jsonify({"error": "Rating not provided"}), 400
+
+    # Validace hodnocení (1-5)
+    try:
+        rating = int(rating)
+        if rating < 1:
+            rating = 1
+        elif rating > 5:
+            rating = 5
+    except ValueError:
+        return jsonify({"error": "Rating must be an integer"}), 400
+
+    # Převod ID uživatele a článku
+    user_id = str(session_user.get('_id'))
+    try:
+        article_id = ObjectId(article_id)
+    except Exception:
+        return jsonify({"error": "Invalid article ID"}), 400
+
+    pipeline = [
+        {'$match': {'_id': article_id}},  # Najdeme článek podle ID
+        {
+            '$set': {
+                'ratings': {
+                    '$concatArrays': [
+                        {
+                            '$filter': {
+                                'input': {'$ifNull': ['$ratings', []]},
+                                'as': 'rating',
+                                'cond': {'$ne': ['$$rating.user_id', user_id]}
+                            }
+                        },
+                        [{'user_id': user_id, 'rating': rating}]  # Přidáme nové/aktualizované hodnocení
+                    ]
+                }
+            }
+        },
+        {
+            '$merge': {
+                'into': 'articles',  # Aktualizujeme kolekci articles
+                'whenMatched': 'merge',  # Spojení do existujícího dokumentu
+                'whenNotMatched': 'discard'  # Neaktualizujeme nic, pokud dokument neexistuje
+            }
+        }
+    ]
+
+    try:
+        # Provádíme agregaci a aktualizujeme dokument
+        articles.aggregate(pipeline)
+
+        return jsonify({"success": "Rating updated successfully"}), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
 @main.route('/article', methods=['GET', 'POST'])
 def article():
     if 'user' not in session:
@@ -120,10 +239,11 @@ def login():
 
         user = users.find_one({"email": email})
         if user and bcrypt.checkpw(password.encode('utf-8'), user['password']):
+
             session['user'] = {
                 '_id': str(user['_id']),
                 'email': user['email'],
-                'favourites': user['favourites']
+                'favourites': user.get('favourites', []),
             }
             return redirect(url_for('main.index'))
 
