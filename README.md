@@ -10,8 +10,29 @@ flask_mongo_redis_app/
 │ ├── main.py
 │ ├── database.py
 │ ├── routes.py
-│ └── templates/
-│   └── index.html
+│ ├── static/
+│ │ ├── css/
+│ │ │ └── common.css
+│ │ ├── images/
+│ │ ├── js/
+│ │   ├── article.js
+│ │   └── common.py
+│ ├── templates/
+│ │ ├── auth/
+│ │ │ ├── login.html
+│ │ │ └── register.html
+│ │ ├── macros/
+│ │ │ └── articles.macros.html
+│ │ ├── messages/
+│ │ │ └── errors.html
+│ │ ├── article.html
+│ │ ├── base.html
+│ │ ├── best.html
+│ │ ├── favourites.html
+│ │ └── index.html
+│ └── utils/
+│   ├── common.utils.py
+│   └── \_\_init\_\_.py
 ├── Dockerfile
 ├── docker-compose.yml
 └── requirements.txt
@@ -22,25 +43,16 @@ flask_mongo_redis_app/
 articles:
 
 - \_id: ObjectId
-- title: string
-- content: string
-- created_at: datetime
-- avg_rating: float # Průměrné hodnocení
-- rating_count: int # Počet hodnocení
-- favorites: list # Seznam ID uživatelů, kteří článek označili jako oblíbený
+- name: string
+- url: string
+- cover: string
+- author: string
+- date: datetime
+- ratings: [] - Seznam objektů `{ 'user_id:' string, 'rating': number }` hodnocení
 
 users:
 
 - \_id: ObjectId
-- username: string
 - email: string
-- password: string # Hashované heslo
-- favorite_articles: list # Seznam ID oblíbených článků
-
-ratings:
-
-- \_id: ObjectId
-- user_id: ObjectId # ID uživatele, který hodnotil
-- article_id: ObjectId # ID článku, který byl hodnocen
-- rating: int # Hodnocení (např. 1–5)
-- created_at: datetime
+- password: string - Hashované heslo
+- favourites: list - Seznam ID oblíbených článků
