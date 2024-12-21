@@ -1,9 +1,10 @@
-from flask import Blueprint, render_template, jsonify, request, session, redirect, url_for
+from flask import Blueprint, request, session, jsonify, redirect, render_template, url_for
 import bcrypt
 from .database import articles, users, redis_client
 import datetime
 from bson import ObjectId
 import logging
+from .utils.common import fill_users_data_into_article_array, get_articles_with_default_data
 logging.basicConfig(level=logging.DEBUG)
 
 LOGIN_TEMPLATE = 'auth/login.html'
@@ -15,7 +16,7 @@ main = Blueprint('main', __name__)
 
 @main.route('/', methods=['GET', 'POST'])
 def index():
-    data = get_articles_with_default_data()
+    data = get_articles_with_default_data(list(articles.find()))
 
     user_query = None
     radio = -1
@@ -43,32 +44,8 @@ def index():
     if radio == 3:
         data = sorted(data, key=lambda x: sum(rating.get('rating', 0.0) for rating in x.get('ratings', [])))
 
-
-    if 'user' in session and len(data) > 0:
-        for article in data:
-            # Převod ObjectId na string, pokud je potřeba
-            article['_id'] = str(article['_id'])
-            article['is_favourite'] = article['_id'] in session['user']['favourites']
-            ratings = article['ratings']
-            article['user_rating'] = next((rating['rating'] for rating in ratings if rating['user_id'] == session['user']['_id']), 0)
-    return render_template('index.html', title="Domů", user=session.get('user', None), articles=data)
-
-def get_articles_with_default_data():
-    data = list(articles.find())
-    if len(data) > 0:
-        for article in data:
-            # Převod ObjectId na string, pokud je potřeba
-            article['_id'] = str(article['_id'])
-            ratings = article.get('ratings', [])
-            total_rating = sum(rating['rating'] for rating in ratings)
-            article['ratings'] = ratings
-            article['rating'] = total_rating / len(ratings) if len(ratings) > 0 else -1
-            article['total_rating'] = total_rating
-
-            # article['date'] = article['date'].strftime('%d.%m.%Y')
-            # article['ratings'] = len(article['ratings'])
-            # article['rating_avg'] = sum(article['rating']) / len(article['rating']) if article['rating'] else
-    return data
+    data = fill_users_data_into_article_array(data)
+    return render_template('index.html', title="Domů", active_page="home", user=session.get('user'), articles=data)
 
 @main.route('/favourites', methods=['GET'])
 def favourites():
@@ -76,8 +53,39 @@ def favourites():
         user = session['user']
         favourite_ids = [ObjectId(fav) for fav in user['favourites']]
         favourites = list(articles.find({"_id": {"$in": favourite_ids}}))
-        return render_template('favourites.html', title="Oblíbené", articles=favourites)
-    return render_template(LOGIN_TEMPLATE, title=LOGIN_TITLE)
+        data = get_articles_with_default_data(favourites)
+        data = fill_users_data_into_article_array(data)
+        return render_template('favourites.html', title="Oblíbené", active_page="favourites", articles=data)
+    return render_template(LOGIN_TEMPLATE, title=LOGIN_TITLE, active_page="login")
+
+@main.route('/best', methods=['GET'])
+def best_articles():
+    # Klíč pro ukládání dat do Redis
+    redis_key = "best_articles_page"
+
+    # Zkusíme načíst stránku z Redis
+    cached_page = redis_client.get(redis_key)
+    if cached_page:
+        logging.debug("Best articles loaded from Redis cache.")
+        # Pokud existuje, vracíme uloženou stránku
+        return cached_page.decode('utf-8')
+
+    # Načteme data z databáze
+    all_articles = get_articles_with_default_data(list(articles.find()))
+    best_articles = sorted(
+        all_articles,
+        key=lambda x: sum(rating.get('rating', 0.0) for rating in x.get('ratings', [])),
+        reverse=True
+    )[:3]  # Vybereme první 3 nejlépe hodnocené
+
+    # Vyrenderujeme šablonu
+    rendered_page = render_template('best.html', title="Nejlepší články", active_page="best", articles=best_articles, user=session.get('user'))
+
+    # Uložíme stránku do Redis s TTL (čas vypršení) 60 sekund
+    redis_client.set(redis_key, rendered_page, ex=60)
+
+    logging.debug("Best articles saved to Redis cache.")
+    return rendered_page
 
 @main.route('/addArticleToFavourites', methods=['POST'])
 def add_article_to_favourites():
@@ -221,7 +229,7 @@ def article():
         articles.insert_one(article)
         return redirect(url_for('main.index'))
 
-    return render_template('article.html', title="Přidat / upravit článek", user=session['user'])
+    return render_template('article.html', title="Přidat článek", active_page="article", user=session['user'])
 
 @main.route('/login', methods=['GET', 'POST'])
 def login():
@@ -235,7 +243,7 @@ def login():
         if len(password.strip()) < 4:
             error = "password_is_too_short"
         if error:
-            return render_template(LOGIN_TEMPLATE, title=LOGIN_TITLE, error=error), 400
+            return render_template(LOGIN_TEMPLATE, title=LOGIN_TITLE, active_page="login", error=error), 400
 
         user = users.find_one({"email": email})
         if user and bcrypt.checkpw(password.encode('utf-8'), user['password']):
@@ -247,9 +255,9 @@ def login():
             }
             return redirect(url_for('main.index'))
 
-        return render_template(LOGIN_TEMPLATE, title=LOGIN_TITLE, error="invalid_credentials"), 401
+        return render_template(LOGIN_TEMPLATE, title=LOGIN_TITLE, active_page="login", error="invalid_credentials"), 401
 
-    return render_template(LOGIN_TEMPLATE, title=LOGIN_TITLE)
+    return render_template(LOGIN_TEMPLATE, title=LOGIN_TITLE, active_page="login")
 
 @main.route('/register', methods=['GET', 'POST'])
 def register():
@@ -266,10 +274,10 @@ def register():
         if(not email or not password.strip() or not confirm_password.strip()):
             error = "empty_fields"
         if(error):
-            return render_template(REGISTER_TEMPLATE, title=REGISTER_TITLE, error=error), 400
+            return render_template(REGISTER_TEMPLATE, title=REGISTER_TITLE, active_page="register", error=error), 400
 
         if users.find_one({"email": email}):
-            return render_template(REGISTER_TEMPLATE, title=REGISTER_TITLE, error="email_in_use"), 400
+            return render_template(REGISTER_TEMPLATE, title=REGISTER_TITLE, active_page="register", error="email_in_use"), 400
 
         hashed_password = bcrypt.hashpw(password.strip().encode('utf-8'), bcrypt.gensalt())
         user = {
@@ -279,7 +287,7 @@ def register():
         users.insert_one(user)
         return redirect(url_for('main.login')), 201
 
-    return render_template(REGISTER_TEMPLATE, title=REGISTER_TITLE)
+    return render_template(REGISTER_TEMPLATE, title=REGISTER_TITLE, active_page="register")
 
 @main.route('/logout', methods=['GET', 'POST'])
 def logout():

@@ -1,0 +1,13 @@
+{% extends 'base.html' %} {% block content %} {% if articles == [] or articles
+== None %}
+<div class="flex flex-col items-center">
+  Omlouváme se, ale nepodařilo se nám najít žádný článek.
+</div>
+{% else %}
+
+<div class="flex flex-wrap justify-center gap-4">
+  {% from 'macros/articles.macros.html' import render_articles %} {{
+  render_articles(articles, is_best=True) }}
+</div>
+
+{% endif %} {% endblock %}
