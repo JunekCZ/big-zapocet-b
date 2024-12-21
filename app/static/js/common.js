@@ -122,3 +122,18 @@ const rateArticle = (articleId, rating) => {
     },
   });
 };
+
+const deleteAccount = () => {
+  $.ajax({
+    url: "http://localhost:5432/deleteAccount",
+    type: "POST",
+    contentType: "application/json",
+    dataType: "json",
+    success: function () {
+      location.reload();
+    },
+    error: function (error) {
+      console.error("Error deleting user:", error);
+    },
+  });
+};

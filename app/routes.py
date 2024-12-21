@@ -4,7 +4,7 @@ from .database import articles, users, redis_client
 import datetime
 from bson import ObjectId
 import logging
-from .utils.common import fill_users_data_into_article_array, get_articles_with_default_data
+from .utils import fill_users_data_into_article_array, get_articles_with_default_data
 logging.basicConfig(level=logging.DEBUG)
 
 LOGIN_TEMPLATE = 'auth/login.html'
@@ -294,3 +294,31 @@ def logout():
     if 'user' in session:
         session.pop('user', None)
     return redirect(url_for('main.index'))
+
+@main.route('/deleteAccount', methods=['POST'])
+def delete_account():
+    session_user = session.get('user')
+    if not session_user:
+        return jsonify({"error": "User not logged in"}), 401
+
+    user_id = session_user.get('_id')
+    if not user_id:
+        return jsonify({"error": "User ID not found in session"}), 401
+
+    user_id = ObjectId(user_id)
+
+    try:
+        # Smazání uživatele z kolekce users
+        users.delete_one({"_id": user_id})
+
+        # Odstranění všech hodnocení uživatele z kolekce articles
+        articles.update_many(
+            {},  # Aktualizovat všechny dokumenty
+            {"$pull": {"ratings": {"user_id": str(user_id)}}}  # Odstranit hodnocení podle user_id
+        )
+
+        session.pop('user', None)
+        return jsonify({"success": "User and associated ratings deleted successfully"}), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
